@@ -27,27 +27,45 @@ const db = new Databases(client);
 
 // Handle Telegram webhook requests
 app.post("/api/telegram", async (req, res) => {
+  console.log(
+    `[${new Date().toISOString()}] Received POST request:`,
+    JSON.stringify(req.body)
+  );
   try {
     const { message } = req.body;
-    if (!message) return res.json({ status: "ok" });
+    if (!message) {
+      console.log(`[${new Date().toISOString()}] No message in request`);
+      return res.json({ status: "ok" });
+    }
     const chatId = message.chat.id.toString();
     const text = (message.text ?? "").trim();
+    console.log(
+      `[${new Date().toISOString()}] Processing command: ${text} from chat ${chatId}`
+    );
 
     const user = await upsertUser(chatId);
     if (!user) {
+      console.log(
+        `[${new Date().toISOString()}] User upsert failed, sending error message`
+      );
       await tg(chatId, "خطا");
       return res.json({ status: "ok" });
     }
     if (user.usageCount >= 400) {
+      console.log(
+        `[${new Date().toISOString()}] Usage limit reached for chat ${chatId}`
+      );
       await tg(chatId, "سقف مصرف ماهانه پر شده");
       return res.json({ status: "ok" });
     }
 
     if (/^\/start/i.test(text)) {
+      console.log(`[${new Date().toISOString()}] Handling /start command`);
       await tg(chatId, "سلام! پیام بده یا گزینه‌ها", menu());
       return res.json({ status: "ok" });
     }
     if (/^\/help/i.test(text)) {
+      console.log(`[${new Date().toISOString()}] Handling /help command`);
       await tg(
         chatId,
         "/start\n/newchat\n/summary100\n/summaryall\n/youtube",
@@ -56,16 +74,19 @@ app.post("/api/telegram", async (req, res) => {
       return res.json({ status: "ok" });
     }
     if (/^\/youtube/i.test(text)) {
+      console.log(`[${new Date().toISOString()}] Handling /youtube command`);
       await tg(chatId, "کانال: https://t.me/sokhannegar_bot", menu());
       return res.json({ status: "ok" });
     }
     if (/^\/newchat/i.test(text)) {
+      console.log(`[${new Date().toISOString()}] Handling /newchat command`);
       await finishSessions(chatId);
       await createSession(chatId, "");
       await tg(chatId, "چت جدید آغاز شد", menu());
       return res.json({ status: "ok" });
     }
     if (/^\/summary(all|100)/i.test(text)) {
+      console.log(`[${new Date().toISOString()}] Handling summary command`);
       const lim = text.includes("100") ? 100 : 1000;
       const chats = await chatsUser(chatId, lim);
       const sum = await summarize(chats);
@@ -77,6 +98,7 @@ app.post("/api/telegram", async (req, res) => {
       return res.json({ status: "ok" });
     }
 
+    console.log(`[${new Date().toISOString()}] Handling regular message`);
     const sess = await getActive(chatId);
     await saveChat(sess.$id, chatId, "user", text);
     const history = await chatsSession(sess.$id, 10);
@@ -96,8 +118,12 @@ app.post("/api/telegram", async (req, res) => {
 
     res.json({ status: "ok" });
   } catch (e) {
-    console.error(e);
-    res.json({ status: "ok" });
+    console.error(
+      `[${new Date().toISOString()}] Error in /api/telegram:`,
+      e.message,
+      e.stack
+    );
+    res.json({ status: "ok" }); // Telegram expects a response even on error
   }
 });
 
@@ -229,17 +255,39 @@ async function askAI(prompt) {
 
 async function tg(chatId, text, reply_markup) {
   try {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: "Markdown",
-        reply_markup,
-      }),
-    });
-  } catch {}
+    console.log(
+      `[${new Date().toISOString()}] Sending Telegram message to ${chatId}: ${text}`
+    );
+    const response = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          parse_mode: "Markdown",
+          reply_markup,
+        }),
+      }
+    );
+    const result = await response.json();
+    console.log(
+      `[${new Date().toISOString()}] Telegram API response: ${
+        response.status
+      } - ${JSON.stringify(result)}`
+    );
+    if (!response.ok) {
+      throw new Error(`Telegram API failed: ${JSON.stringify(result)}`);
+    }
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] Failed to send Telegram message: ${
+        error.message
+      }`
+    );
+    throw error; // Re-throw to catch in the main handler
+  }
 }
 
 function menu() {
@@ -253,9 +301,11 @@ function menu() {
   };
 }
 
-// Start the server
+// Test route
 app.get("/", (req, res) => {
   res.send("Telegram Bot Server is running!");
 });
+
+// Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
