@@ -1,7 +1,8 @@
 require("dotenv").config();
 const express = require("express");
 const { Client, Databases, ID, Query } = require("node-appwrite");
-const fetch = require("node-fetch");
+// Import node-fetch correctly for CommonJS
+const fetch = require("node-fetch").default; // Use .default for ESM compatibility
 
 const app = express();
 app.use(express.json()); // Parse incoming JSON requests
