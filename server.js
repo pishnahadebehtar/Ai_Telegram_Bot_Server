@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const { Client, Databases, ID, Query } = require("node-appwrite");
-const fetch = require("node-fetch").default; // Use .default for ESM compatibility
+const fetch = require("node-fetch").default;
 
 const app = express();
 app.use(express.json()); // Parse incoming JSON requests
@@ -242,7 +242,7 @@ async function askAI(prompt) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openrouter/quasar-alpha",
+        model: "quasar-openai/quasar-7b-chat-alpha",
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -258,17 +258,16 @@ async function tg(chatId, text, reply_markup) {
     console.log(
       `[${new Date().toISOString()}] Sending Telegram message to ${chatId}: ${text}`
     );
-    const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
     const response = await fetch(
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(telegramUrl)}`,
+      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: chatId,
-          text,
+          text: text,
           parse_mode: "Markdown",
-          reply_markup,
+          reply_markup: reply_markup,
         }),
       }
     );
@@ -287,7 +286,7 @@ async function tg(chatId, text, reply_markup) {
         error.message
       }`
     );
-    throw error; // Re-throw to catch in the main handler
+    throw error;
   }
 }
 
