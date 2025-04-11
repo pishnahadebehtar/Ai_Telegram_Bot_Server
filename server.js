@@ -1,7 +1,6 @@
 require("dotenv").config();
 const express = require("express");
 const { Client, Databases, ID, Query } = require("node-appwrite");
-// Import node-fetch correctly for CommonJS
 const fetch = require("node-fetch").default; // Use .default for ESM compatibility
 
 const app = express();
@@ -243,7 +242,7 @@ async function askAI(prompt) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "quasar-openai/quasar-7b-chat-alpha",
+        model: "openrouter/quasar-alpha",
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -259,8 +258,9 @@ async function tg(chatId, text, reply_markup) {
     console.log(
       `[${new Date().toISOString()}] Sending Telegram message to ${chatId}: ${text}`
     );
+    const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
     const response = await fetch(
-      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(telegramUrl)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
